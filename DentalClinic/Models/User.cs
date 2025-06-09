@@ -1,4 +1,7 @@
-﻿namespace DentalClinic.Models
+﻿using System;
+using System.Collections.Generic;
+
+namespace DentalClinic.Models
 {
     public class User
     {
@@ -8,6 +11,8 @@
         public DateOnly RegistrationDate { get; set; }
         public string FullName { get; set; }
         public string PhoneNumber { get; set; }
-        public ICollection<Applic> Applications { get; set; }
+
+        // Список книг, которые взял пользователь
+        public ICollection<Book> BorrowedBooks { get; set; } = new List<Book>();
     }
 }

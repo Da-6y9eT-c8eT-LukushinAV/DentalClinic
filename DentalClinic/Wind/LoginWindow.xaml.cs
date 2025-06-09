@@ -1,8 +1,6 @@
 ﻿using DentalClinic.Data;
 using DentalClinic.Models;
-using DentalClinic.Wind;
 using Microsoft.EntityFrameworkCore;
-using System;
 using System.Linq;
 using System.Windows;
 
@@ -10,69 +8,41 @@ namespace DentalClinic.Wind
 {
     public partial class LoginWindow : Window
     {
-        private readonly DentalContext _dbContext;
-        public User CurrentUser { get; private set; }
+        private readonly LibraryContext _dbContext;
+        public User LoggedInUser { get; private set; }
 
-        public LoginWindow()
+        public LoginWindow(LibraryContext dbContext)
         {
             InitializeComponent();
-            var optionsBuilder = new DbContextOptionsBuilder<DentalContext>();
-            optionsBuilder.UseSqlite("Data Source=dental.db");
-            _dbContext = new DentalContext(optionsBuilder.Options);
+            _dbContext = dbContext;
         }
 
-        public DentalContext GetDbContext()
+        private void LoginButton_Click(object sender, RoutedEventArgs e)
         {
-            return _dbContext;
-        }
-
-        private void Login_Click(object sender, RoutedEventArgs e)
-        {
-            try
+            if (string.IsNullOrWhiteSpace(LoginTextBox.Text) || string.IsNullOrWhiteSpace(PasswordBox.Password))
             {
-                var login = LoginTextBox.Text.Trim();
-                var password = PasswordBox.Password;
-
-                Console.WriteLine($"Попытка входа: Login={login}, Password={password}");
-
-                if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
-                {
-                    Console.WriteLine("Ошибка: Логин или пароль пустые.");
-                    MessageBox.Show("Введите логин и пароль.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                var user = _dbContext.Users
-                    .FirstOrDefault(u => u.Login == login && u.Password == password);
-
-                if (user == null)
-                {
-                    Console.WriteLine("Ошибка: Пользователь не найден.");
-                    MessageBox.Show("Неверный логин или пароль.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                Console.WriteLine($"Успешная авторизация: User={user.FullName}, Id={user.Id}");
-                CurrentUser = user;
-                // Принудительное открытие MainWindow
-                var mainWindow = new MainWindow(_dbContext, CurrentUser);
-                mainWindow.Show();
-                Close();
+                MessageBox.Show("Пожалуйста, введите логин и пароль", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
-            catch (Exception ex)
+
+            var user = _dbContext.Users
+                .Include(u => u.BorrowedBooks)
+                .FirstOrDefault(u => u.Login == LoginTextBox.Text && u.Password == PasswordBox.Password);
+
+            if (user != null)
             {
-                Console.WriteLine($"Исключение: {ex.Message}");
-                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                LoggedInUser = user;
+                DialogResult = true;
+            }
+            else
+            {
+                MessageBox.Show("Неверный логин или пароль", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void Register_Click(object sender, RoutedEventArgs e)
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
-            var registerWindow = new RegisterWindow(_dbContext);
-            if (registerWindow.ShowDialog() == true)
-            {
-                MessageBox.Show("Регистрация успешна! Теперь вы можете войти.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
+            DialogResult = false;
         }
     }
 }

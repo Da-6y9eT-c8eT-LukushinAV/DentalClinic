@@ -3,6 +3,7 @@ using DentalClinic.Models;
 using DentalClinic.Wind;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -11,102 +12,193 @@ namespace DentalClinic
 {
     public partial class MainWindow : Window
     {
-        private readonly DentalContext _dbContext;
-        private readonly User _currentUser;
+        private readonly LibraryContext _dbContext;
+        private User _currentUser;
 
-        public MainWindow(DentalContext dbContext, User currentUser)
+        public MainWindow()
         {
             InitializeComponent();
-            _dbContext = dbContext;
-            _currentUser = currentUser;
-            LoadApplics();
-            UserInfo.Text = $"Текущий пользователь: {_currentUser.FullName} (Логин: {_currentUser.Login})";
+            _dbContext = new LibraryContext();
+            LoadBooks();
+            UpdateUIState();
         }
 
-        private void LoadApplics()
+        private void LoadBooks()
         {
             try
             {
-                ApplicsGrid.ItemsSource = _dbContext.Applications
-                    .Include(a => a.User)
+                BooksGrid.ItemsSource = _dbContext.Books
+                    .Include(b => b.Reader)
                     .ToList();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка загрузки заявок: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Ошибка загрузки книг: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void AddApplic_Click(object sender, RoutedEventArgs e)
+        private void UpdateUIState()
         {
-            var addWindow = new EditApplicWindow(_dbContext, null);
+            bool isLoggedIn = _currentUser != null;
+            LoginButton.Visibility = isLoggedIn ? Visibility.Collapsed : Visibility.Visible;
+            RegisterButton.Visibility = isLoggedIn ? Visibility.Collapsed : Visibility.Visible;
+            LogoutButton.Visibility = isLoggedIn ? Visibility.Visible : Visibility.Collapsed;
+            UserInfo.Text = isLoggedIn ? $"Текущий пользователь: {_currentUser.FullName} (Логин: {_currentUser.Login})" : "Пожалуйста, войдите в систему";
+        }
+
+        private void AddBook_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null)
+            {
+                MessageBox.Show("Необходимо войти в систему", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var addWindow = new EditBookWindow(_dbContext);
             if (addWindow.ShowDialog() == true)
             {
-                LoadApplics();
+                LoadBooks();
             }
         }
 
-        private void ApplicsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private void BooksGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (ApplicsGrid.SelectedItem is Applic selectedApplic)
+            if (_currentUser == null)
             {
-                var editWindow = new EditApplicWindow(_dbContext, selectedApplic);
+                MessageBox.Show("Необходимо войти в систему", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (BooksGrid.SelectedItem is Book selectedBook)
+            {
+                var editWindow = new EditBookWindow(_dbContext, selectedBook);
                 if (editWindow.ShowDialog() == true)
                 {
-                    LoadApplics();
+                    LoadBooks();
                 }
             }
         }
 
-        private void AssignApplic_Click(object sender, RoutedEventArgs e)
+        private void BorrowBook_Click(object sender, RoutedEventArgs e)
         {
-            if (ApplicsGrid.SelectedItem is Applic selectedApplic && selectedApplic.UserId == null)
+            if (_currentUser == null)
             {
-                selectedApplic.UserId = _currentUser.Id;
+                MessageBox.Show("Необходимо войти в систему", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (BooksGrid.SelectedItem is Book selectedBook && selectedBook.Status == BookStatus.Available)
+            {
+                selectedBook.ReaderId = _currentUser.Id;
+                selectedBook.Status = BookStatus.Borrowed;
                 _dbContext.SaveChanges();
-                LoadApplics();
-                MessageBox.Show("Заявка выдана текущему пользователю.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                LoadBooks();
+                MessageBox.Show("Книга выдана.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             else
             {
-                MessageBox.Show("Заявка уже выдана или не выбрана.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Книга недоступна или не выбрана.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
-        private void UnassignApplic_Click(object sender, RoutedEventArgs e)
+        private void ReturnBook_Click(object sender, RoutedEventArgs e)
         {
-            if (ApplicsGrid.SelectedItem is Applic selectedApplic && selectedApplic.UserId == _currentUser.Id)
+            if (_currentUser == null)
             {
-                selectedApplic.UserId = null;
+                MessageBox.Show("Необходимо войти в систему", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (BooksGrid.SelectedItem is Book selectedBook && selectedBook.ReaderId == _currentUser.Id)
+            {
+                selectedBook.ReaderId = null;
+                selectedBook.Status = BookStatus.Available;
                 _dbContext.SaveChanges();
-                LoadApplics();
-                MessageBox.Show("Заявка списана с текущего пользователя.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                LoadBooks();
+                MessageBox.Show("Книга возвращена.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             else
             {
-                MessageBox.Show("Заявка не выдана текущему пользователю или не выбрана.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Книга не выдана вам или не выбрана.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
-        private void DeleteApplic_Click(object sender, RoutedEventArgs e)
+        private void ChangeStatus_Click(object sender, RoutedEventArgs e)
         {
-            if (ApplicsGrid.SelectedItem is Applic selectedApplic)
+            if (_currentUser == null)
             {
-                var result = MessageBox.Show($"Вы уверены, что хотите удалить заявку №{selectedApplic.ApplicationNumber}?", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                MessageBox.Show("Необходимо войти в систему", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (BooksGrid.SelectedItem is Book selectedBook)
+            {
+                var statusWindow = new ChangeBookStatusWindow(selectedBook.Status);
+                if (statusWindow.ShowDialog() == true)
+                {
+                    selectedBook.Status = statusWindow.SelectedStatus;
+                    if (selectedBook.Status != BookStatus.Borrowed)
+                    {
+                        selectedBook.ReaderId = null;
+                    }
+                    _dbContext.SaveChanges();
+                    LoadBooks();
+                }
+            }
+        }
+
+        private void DeleteBook_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null)
+            {
+                MessageBox.Show("Необходимо войти в систему", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (BooksGrid.SelectedItem is Book selectedBook)
+            {
+                var result = MessageBox.Show($"Вы уверены, что хотите удалить книгу \"{selectedBook.Title}\"?", 
+                    "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (result == MessageBoxResult.Yes)
                 {
                     try
                     {
-                        _dbContext.Applications.Remove(selectedApplic);
+                        _dbContext.Books.Remove(selectedBook);
                         _dbContext.SaveChanges();
-                        LoadApplics();
+                        LoadBooks();
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"Ошибка удаления заявки: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"Ошибка удаления книги: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
             }
+        }
+
+        private void Login_Click(object sender, RoutedEventArgs e)
+        {
+            var loginWindow = new LoginWindow(_dbContext);
+            if (loginWindow.ShowDialog() == true)
+            {
+                _currentUser = loginWindow.LoggedInUser;
+                UpdateUIState();
+            }
+        }
+
+        private void Register_Click(object sender, RoutedEventArgs e)
+        {
+            var registerWindow = new RegisterWindow(_dbContext);
+            if (registerWindow.ShowDialog() == true)
+            {
+                _currentUser = registerWindow.RegisteredUser;
+                UpdateUIState();
+            }
+        }
+
+        private void Logout_Click(object sender, RoutedEventArgs e)
+        {
+            _currentUser = null;
+            UpdateUIState();
         }
     }
 }

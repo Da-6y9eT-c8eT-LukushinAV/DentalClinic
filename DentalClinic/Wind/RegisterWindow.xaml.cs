@@ -8,56 +8,65 @@ namespace DentalClinic.Wind
 {
     public partial class RegisterWindow : Window
     {
-        private readonly DentalContext _dbContext;
+        private readonly LibraryContext _dbContext;
+        public User RegisteredUser { get; private set; }
 
-        public RegisterWindow(DentalContext dbContext)
+        public RegisterWindow(LibraryContext dbContext)
         {
             InitializeComponent();
             _dbContext = dbContext;
         }
 
-        private void Register_Click(object sender, RoutedEventArgs e)
+        private void RegisterButton_Click(object sender, RoutedEventArgs e)
         {
+            if (string.IsNullOrWhiteSpace(LoginTextBox.Text) ||
+                string.IsNullOrWhiteSpace(PasswordBox.Password) ||
+                string.IsNullOrWhiteSpace(ConfirmPasswordBox.Password) ||
+                string.IsNullOrWhiteSpace(FullNameTextBox.Text) ||
+                string.IsNullOrWhiteSpace(PhoneNumberTextBox.Text))
+            {
+                MessageBox.Show("Пожалуйста, заполните все поля", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (PasswordBox.Password != ConfirmPasswordBox.Password)
+            {
+                MessageBox.Show("Пароли не совпадают", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (_dbContext.Users.Any(u => u.Login == LoginTextBox.Text))
+            {
+                MessageBox.Show("Пользователь с таким логином уже существует", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             try
             {
-                var login = LoginTextBox.Text.Trim();
-                var password = PasswordBox.Password;
-                var fullName = FullNameTextBox.Text.Trim();
-                var phoneNumber = PhoneNumberTextBox.Text.Trim();
-
-                if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
-                    throw new Exception("Логин и пароль обязательны.");
-                if (_dbContext.Users.Any(u => u.Login == login))
-                    throw new Exception("Пользователь с таким логином уже существует.");
-                if (string.IsNullOrEmpty(fullName))
-                    throw new Exception("ФИО обязательно.");
-                if (string.IsNullOrEmpty(phoneNumber))
-                    throw new Exception("Номер телефона обязателен.");
-
-                var user = new User
+                var newUser = new User
                 {
-                    Login = login,
-                    Password = password,
-                    RegistrationDate = DateOnly.FromDateTime(DateTime.Now),
-                    FullName = fullName,
-                    PhoneNumber = phoneNumber
+                    Login = LoginTextBox.Text,
+                    Password = PasswordBox.Password,
+                    FullName = FullNameTextBox.Text,
+                    PhoneNumber = PhoneNumberTextBox.Text,
+                    RegistrationDate = DateOnly.FromDateTime(DateTime.Today)
                 };
 
-                _dbContext.Users.Add(user);
+                _dbContext.Users.Add(newUser);
                 _dbContext.SaveChanges();
+
+                RegisteredUser = newUser;
                 DialogResult = true;
-                Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Ошибка при регистрации: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void Cancel_Click(object sender, RoutedEventArgs e)
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
-            Close();
         }
     }
 }

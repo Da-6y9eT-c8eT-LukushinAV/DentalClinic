@@ -3,59 +3,56 @@ using System;
 using DentalClinic.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
 namespace DentalClinic.Migrations
 {
-    [DbContext(typeof(DentalContext))]
-    [Migration("20250519031754_init")]
-    partial class init
+    [DbContext(typeof(LibraryContext))]
+    partial class LibraryContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.5");
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.0");
 
-            modelBuilder.Entity("DentalClinic.Models.Applic", b =>
+            modelBuilder.Entity("DentalClinic.Models.Book", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("ApplicationNumber")
+                    b.Property<string>("ArticleNumber")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("FullDescription")
+                    b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateOnly>("RegistrationDate")
+                    b.Property<string>("Genre")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ShortDescription")
-                        .IsRequired()
+                    b.Property<int?>("ReaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("ReleaseDate")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Type")
+                    b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("INTEGER");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("ReaderId");
 
-                    b.ToTable("Applications");
+                    b.ToTable("Books");
                 });
 
             modelBuilder.Entity("DentalClinic.Models.User", b =>
@@ -88,18 +85,18 @@ namespace DentalClinic.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("DentalClinic.Models.Applic", b =>
+            modelBuilder.Entity("DentalClinic.Models.Book", b =>
                 {
-                    b.HasOne("DentalClinic.Models.User", "User")
-                        .WithMany("Applications")
-                        .HasForeignKey("UserId");
+                    b.HasOne("DentalClinic.Models.User", "Reader")
+                        .WithMany("BorrowedBooks")
+                        .HasForeignKey("ReaderId");
 
-                    b.Navigation("User");
+                    b.Navigation("Reader");
                 });
 
             modelBuilder.Entity("DentalClinic.Models.User", b =>
                 {
-                    b.Navigation("Applications");
+                    b.Navigation("BorrowedBooks");
                 });
 #pragma warning restore 612, 618
         }
